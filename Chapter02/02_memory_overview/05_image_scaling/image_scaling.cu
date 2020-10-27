@@ -1,5 +1,5 @@
-#include<stdio.h>
-#include"scrImagePgmPpmPackage.h"
+#include <stdio.h>
+#include "scrImagePgmPpmPackage.h"
 
 //Kernel which calculate the resized image
 __global__ void createResizedImage(unsigned char *imageScaledData, int scaled_width, float scale_factor, cudaTextureObject_t texObj)
@@ -17,8 +17,8 @@ int main(int argc, char*argv[])
 	int height=0, width =0, scaled_height=0,scaled_width=0;
 	//Define the scaling ratio	
 	float scaling_ratio=0.5;
-	unsigned char*data;
-	unsigned char*scaled_data,*d_scaled_data;
+	unsigned char *data;
+	unsigned char *scaled_data, *d_scaled_data;
 
 	char inputStr[1024] = {"aerosmith-double.pgm"};
 	char outputStr[1024] = {"aerosmith-double-scaled.pgm"};
@@ -29,7 +29,7 @@ int main(int argc, char*argv[])
 	cudaChannelFormatKind kind = cudaChannelFormatKindUnsigned;
 	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(8, 0, 0, 0, kind);
 
-	get_PgmPpmParams(inputStr, &height, &width);	//getting height and width of the current image
+	get_PgmPpmParams( inputStr, &height, &width);	//getting height and width of the current image
 	data = (unsigned char*)malloc(height*width*sizeof(unsigned char));
 	printf("\n Reading image width height and width [%d][%d]", height, width);
 	scr_read_pgm( inputStr , data, height, width );//loading an image to "inputimage"
@@ -41,7 +41,8 @@ int main(int argc, char*argv[])
 
 	//Allocate CUDA Array
  	returnValue = cudaMallocArray( &cu_array, &channelDesc, width, height);
-	returnValue = (cudaError_t)(returnValue | cudaMemcpy( cu_array, data, height * width * sizeof(unsigned char), cudaMemcpyHostToDevice));
+	returnValue = (cudaError_t)(returnValue | \
+		cudaMemcpy2DToArray( cu_array, 0, 0, data, width * sizeof(unsigned char), width * sizeof(unsigned char), height, cudaMemcpyHostToDevice));
 
 	if(returnValue != cudaSuccess)
 		printf("\n Got error while running CUDA API Array Copy");
@@ -51,6 +52,7 @@ int main(int argc, char*argv[])
 	memset(&resDesc, 0, sizeof(resDesc));
 	resDesc.resType = cudaResourceTypeArray;
 	resDesc.res.array.array = cu_array;
+
 	// Step 2. Specify texture object parameters
 	struct cudaTextureDesc texDesc;
 	memset(&texDesc, 0, sizeof(texDesc));
@@ -77,14 +79,14 @@ int main(int argc, char*argv[])
 
 	returnValue = (cudaError_t)(returnValue | cudaDeviceSynchronize());
 
-	returnValue = (cudaError_t)(returnValue |cudaMemcpy (scaled_data , d_scaled_data, scaled_height*scaled_width*sizeof(unsigned char), cudaMemcpyDeviceToHost ));
+	returnValue = (cudaError_t)(returnValue | cudaMemcpy (scaled_data , d_scaled_data, scaled_height * scaled_width * sizeof(unsigned char), cudaMemcpyDeviceToHost ));
 	if(returnValue != cudaSuccess) 
 		printf("\n Got error while running CUDA API kernel");
 
 	// Step 5: Destroy texture object
 	cudaDestroyTextureObject(texObj);
 	
-	scr_write_pgm( outputStr, scaled_data, scaled_height, scaled_width, "####" ); //storing the image with the detections
+	scr_write_pgm( outputStr, scaled_data, scaled_height, scaled_width, (char *)"####" ); //storing the image with the detections
 		
 	if(data != NULL)
 		free(data);
